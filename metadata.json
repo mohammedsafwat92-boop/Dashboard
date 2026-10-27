@@ -1,0 +1,8 @@
+{
+  "name": "Cohort Performance Intelligence - Multi-Sheet Training Analytics",
+  "description": "Multi-sheet analytics platform comparing roleplay simulations and test performance across all 6 training cohorts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

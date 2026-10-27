@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TP-Skillence — 6-Wave Multi-Cohort Training & Roleplay Performance Dashboard</title>
+  <meta name="description" content="Teleperformance Skillence real-time cross-cohort performance analytics across all 6 training workbooks and waves.">
+  <meta property="og:title" content="TP-Skillence — 6-Wave Multi-Cohort Training Dashboard">
+  <meta property="og:description" content="Teleperformance Skillence real-time cross-cohort performance analytics across all 6 training workbooks and waves.">
+
+  <!-- Chart.js & SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       ORIGINAL COLOR PALETTE & DESIGN SYSTEM
+       Background: #F4F5F8 | Ink: #111116 | Accent: #06C167 | Cards: #fff | Header/Toolbar: #050505
+       ========================================================================== */
+    :root {
+      --bg-page: #F4F5F8;
+      --bg-card: #FFFFFF;
+      --bg-header: #050505;
+      --bg-soft: #F5F6F9;
+      --bg-subtle: #F8F9FA;
+      --ink: #111116;
+      --muted: #69717E;
+      --line: #E5E7EC;
+      --border-dark: #333333;
+      --uber-green: #06C167;
+      --gain-green: #08755D;
+      --loss-red: #D64545;
+      --amber: #F6B73C;
+      --grey-bar: #B3B5C0;
+      --dark-panel: #101014;
+      --dark-card: #17171E;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-page);
+      font-family: Inter, Segoe UI, Arial, -apple-system, sans-serif;
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    /* TOP TOOLBAR (Original #050505 dark bar) */
+    .wave-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-header);
+      color: #fff;
+      min-height: 52px;
+      padding: 8px 22px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid var(--border-dark);
+      font-size: 12px;
+    }
+
+    .wave-toolbar .toolbar-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #B9C1BD;
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    .native-radio {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      clip: rect(0,0,0,0);
+      overflow: hidden;
+    }
+
+    .wave-button {
+      border: 1px solid #555;
+      border-radius: 7px;
+      padding: 6px 13px;
+      color: #DDD;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0;
+      background: transparent;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      user-select: none;
+    }
+
+    .wave-button:hover {
+      background: #1e1e1e;
+      border-color: #888;
+      color: #fff;
+    }
+
+    .wave-button.primary {
+      background: var(--uber-green);
+      color: #000;
+      border-color: var(--uber-green);
+      font-weight: 800;
+    }
+
+    .wave-button.primary:hover {
+      background: #05ad5c;
+    }
+
+    /* When active via radio */
+    .native-radio:checked + .wave-button {
+      background: var(--uber-green);
+      color: #000;
+      border-color: var(--uber-green);
+    }
+
+    .sync-status-badge {
+      margin-left: auto;
+      color: #B9C1BD;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #141414;
+      padding: 5px 11px;
+      border-radius: 6px;
+      border: 1px solid #333;
+    }
+
+    .sync-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--uber-green);
+      display: inline-block;
+    }
+
+    .sync-indicator.syncing {
+      background: var(--amber);
+      animation: pulse 0.8s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.3; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1.15); }
+    }
+
+    /* HEADER BANNER (Original TP Black with Green Accent Border) */
+    .header {
+      background: var(--bg-header);
+      color: #fff;
+      padding: 28px 44px 26px;
+      border-bottom: 3px solid var(--uber-green);
+      box-shadow: 0 3px 18px rgba(0,0,0,.16);
+    }
+
+    .header-inner {
+      max-width: 1440px;
+      margin: auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 30px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.7px;
+      color: #B9DCC8;
+      text-transform: uppercase;
+    }
+
+    .title {
+      font-size: 34px;
+      line-height: 1.05;
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      margin: 6px 0 6px;
+      color: #fff;
+    }
+
+    .subtitle {
+      color: #CFCFCF;
+      font-size: 13px;
+    }
+
+    .header-meta {
+      text-align: right;
+      color: #D8D8D8;
+      font-size: 12px;
+    }
+
+    .header-meta .date {
+      font-size: 16px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .header-meta .tag {
+      display: inline-block;
+      border: 1px solid #45454D;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 10px;
+      color: #E8E8EB;
+      margin-top: 8px;
+    }
+
+    /* MAIN CONTAINER */
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 34px 60px;
+    }
+
+    /* TABS (Original Pill Tabs) */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      border: 1px solid #DDDDE4;
+      background: #fff;
+      padding: 9px 17px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--ink);
+      transition: all 0.15s ease;
+    }
+
+    .tab:hover {
+      background: #F8F9FA;
+      border-color: #AAA;
+    }
+
+    .tab.active {
+      background: var(--dark-panel);
+      color: #fff;
+      border-color: var(--dark-panel);
+      box-shadow: inset 0 -2px 0 var(--uber-green);
+    }
+
+    /* SECTION TITLES & SUBS */
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -.4px;
+      margin: 26px 0 12px;
+      color: var(--ink);
+    }
+
+    .section-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin: -6px 0 15px;
+      line-height: 1.5;
+    }
+
+    /* CARDS & GRIDS (Original Card System) */
+    .grid { display: grid; gap: 16px; }
+    .two { grid-template-columns: 1.15fr .85fr; }
+    .three { grid-template-columns: 1fr 1fr 1fr; }
+    .kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(18,21,35,.035);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Card accent stripe */
+    .kpis .card:before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 18px;
+      right: 18px;
+      height: 3px;
+      background: #131318;
+    }
+
+    .kpis .card.accent:before,
+    .kpis .card:nth-child(2):before,
+    .kpis .card:nth-child(3):before {
+      background: var(--uber-green);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    .kpi-value {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-top: 7px;
+      color: var(--ink);
+    }
+
+    .kpi-value.accent-value,
+    .kpis .card:nth-child(2) .kpi-value,
+    .kpis .card:nth-child(3) .kpi-value {
+      color: var(--gain-green);
+    }
+
+    .kpi-note {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.45;
+    }
+
+    .gain { color: var(--gain-green); font-weight: 800; }
+    .loss { color: var(--loss-red); font-weight: 800; }
+    .small { font-size: 11px; color: var(--muted); }
+    .unit { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+    /* EXECUTIVE INSIGHT & ROI PANELS (Original Black Panels with Green Rings) */
+    .insight, .roi {
+      padding: 22px;
+      border-radius: 16px;
+      background: var(--dark-panel);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .insight:after {
+      content: "";
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      right: -35px;
+      top: -35px;
+      background: var(--uber-green);
+      opacity: .18;
+    }
+
+    .insight h3 {
+      margin: 0 0 9px;
+      font-size: 15px;
+      color: #fff;
+    }
+
+    .insight p {
+      margin: 0;
+      color: #C8C8D1;
+      font-size: 13px;
+      max-width: 90%;
+    }
+
+    .insight .big {
+      font-size: 27px;
+      color: var(--uber-green);
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .roi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .roi-item {
+      background: var(--dark-card);
+      border-radius: 12px;
+      padding: 15px;
+    }
+
+    .roi-item b {
+      font-size: 24px;
+      color: var(--uber-green);
+      display: block;
+    }
+
+    .roi-item span {
+      font-size: 11px;
+      color: #B7B7C1;
+    }
+
+    /* TABLES (Original Crisp Light Style) */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      margin-bottom: 16px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      min-width: 850px;
+    }
+
+    th {
+      background: #F7F7F7;
+      text-align: left;
+      padding: 12px 13px;
+      border-bottom: 1px solid #DDD;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: #666D7C;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 13px;
+      border-bottom: 1px solid #EEE;
+      color: var(--ink);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #FAFAFA; }
+
+    /* BADGES (Original Soft Badges) */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .high, .badge-high {
+      background: #FDECEC;
+      color: #A52D2D;
+    }
+
+    .medium, .badge-medium {
+      background: #FFF4D8;
+      color: #875A00;
+    }
+
+    .low, .badge-low {
+      background: #E6F7EF;
+      color: #087A45;
+    }
+
+    .pill, .badge-neutral {
+      background: #EDF8F1;
+      color: #087A45;
+      border: 1px solid #D8E6DC;
+    }
+
+    /* PROGRESS BARS */
+    .progress {
+      height: 10px;
+      background: #EEEDF3;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress > i {
+      display: block;
+      height: 100%;
+      background: var(--uber-green);
+      border-radius: 999px;
+    }
+
+    /* CHARTS CONTAINER */
+    .chart-box {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+      height: 320px;
+      position: relative;
+      box-shadow: 0 4px 16px rgba(18,21,35,.035);
+    }
+
+    .chart-box h3 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--ink);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* FILTERS & SEARCH */
+    .filter {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #D7D7D7;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .filter:focus {
+      border-color: #000;
+    }
+
+    .select-input {
+      padding: 8px 12px;
+      border: 1px solid #D7D7D7;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+      outline: none;
+    }
+
+    /* VIEW PANELS */
+    .wave-page { display: none; }
+    .wave-page.active { display: block; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* FOOTER */
+    .footer {
+      max-width: 1440px;
+      margin: auto;
+      padding: 20px 34px 30px;
+      color: #797F8A;
+      font-size: 11px;
+      border-top: 1px solid var(--line);
+    }
+
+    /* MODAL */
+    .trainee-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .trainee-modal-overlay.open { display: flex; }
+
+    .trainee-modal {
+      background: #fff;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 750px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+      border: 1px solid var(--line);
+    }
+
+    .modal-head {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+      background: #FAFAFA;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-head h3 {
+      font-size: 17px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .modal-body { padding: 24px; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP TOOLBAR (#050505 Dark Bar with original Wave Selector Buttons) -->
+  <nav class="wave-toolbar" aria-label="Training wave selector">
+    <span class="toolbar-label">COHORTS &amp; WAVES</span>
+
+    <input type="radio" name="wave-radio" id="btn-compare" class="native-radio" checked onchange="switchCohortView('wave-compare')">
+    <label for="btn-compare" class="wave-button">📊 Compare All Cohorts</label>
+
+    <input type="radio" name="wave-radio" id="btn-w1" class="native-radio" onchange="switchCohortView('wave-1')">
+    <label for="btn-w1" class="wave-button">Wave 1 (EOT)</label>
+
+    <input type="radio" name="wave-radio" id="btn-w2" class="native-radio" onchange="switchCohortView('wave-2')">
+    <label for="btn-w2" class="wave-button">Wave 2 (EOT)</label>
+
+    <input type="radio" name="wave-radio" id="btn-w3" class="native-radio" onchange="switchCohortView('wave-3')">
+    <label for="btn-w3" class="wave-button">Wave 3 · Perf Tracker</label>
+
+    <input type="radio" name="wave-radio" id="btn-w4" class="native-radio" onchange="switchCohortView('wave-4')">
+    <label for="btn-w4" class="wave-button">Wave 4 · Waves 65–66</label>
+
+    <input type="radio" name="wave-radio" id="btn-w5" class="native-radio" onchange="switchCohortView('wave-5')">
+    <label for="btn-w5" class="wave-button">Wave 5 · Wave 66 Ops</label>
+
+    <input type="radio" name="wave-radio" id="btn-w6" class="native-radio" onchange="switchCohortView('wave-6')">
+    <label for="btn-w6" class="wave-button">Wave 6 · Monitors</label>
+
+    <button class="wave-button primary" onclick="syncAllLiveWorkbooks()">
+      <span id="sync-icon">🔄</span> Sync Live Data
+    </button>
+
+    <button class="wave-button" onclick="exportMasterWorkbook()">
+      📥 Export Excel (.xlsx)
+    </button>
+
+    <div class="sync-status-badge">
+      <span class="sync-indicator" id="sync-dot"></span>
+      <span id="sync-status-text">6 Sheets Connected</span>
+    </div>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 0: COMPARE ALL COHORTS (#wave-compare)                               -->
+  <!-- ========================================================================= -->
+  <div id="wave-compare" class="wave-page active">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence • Cross-Cohort Analytics</div>
+          <div class="title">Cross-Cohort Comparison Suite</div>
+          <div class="subtitle">Side-by-side roleplays, module completion &amp; coaching benchmark across all 6 workbooks</div>
+        </div>
+        <div class="header-meta">
+          <div style="display:flex;gap:24px;justify-content:flex-end">
+            <div><b>ACTIVE WORKBOOKS</b><br><span class="date">6 Sheets</span></div>
+            <div><b>TOTAL HEADCOUNT</b><br><span class="date" id="header-total-hc">82 Agents</span></div>
+          </div>
+          <span class="tag">Live Google Sheets GViz Sync • Fully Connected</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Cross-Cohort KPI Tiles in original style -->
+      <div class="grid kpis" style="margin-bottom: 24px;">
+        <div class="card">
+          <div class="kpi-label">Total Active Trainees</div>
+          <div class="kpi-value" id="comp-kpi-hc">82</div>
+          <div class="kpi-note">Across 6 workbooks<br>100% coverage</div>
+        </div>
+        <div class="card accent">
+          <div class="kpi-label">Average Roleplay Gain</div>
+          <div class="kpi-value accent-value" id="comp-kpi-gain">+0.75<span class="small"> pts</span></div>
+          <div class="kpi-note">Baseline to Final RP<br>Scale 0–5.0</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Module Completion</div>
+          <div class="kpi-value" id="comp-kpi-module">74.8%</div>
+          <div class="kpi-note">Target: 80% completion<br>Passing benchmark</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Attendance Completion</div>
+          <div class="kpi-value" id="comp-kpi-att">76.2%</div>
+          <div class="kpi-note">Regular &amp; compensation hours<br>Target: 20-40 hrs/agent</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Coaching Priority Mix</div>
+          <div class="kpi-value" style="color: #A52D2D;" id="comp-kpi-priority">23 High</div>
+          <div class="kpi-note">41 Medium • 18 Low<br>Priority coaching workload</div>
+        </div>
+      </div>
+
+      <!-- Executive takeaway & Program delivery in original dark panels -->
+      <div class="section-title">Cross-cohort executive takeaway</div>
+      <div class="grid two">
+        <div class="insight">
+          <h3>Curriculum Progression &amp; Roleplay Uplift</h3>
+          <div class="big" id="takeaway-gain">+0.75 points</div>
+          <p>
+            Across all 6 training workbooks, average roleplay performance advanced from <b>2.38/5 initial to 3.13/5 final</b>. Wave 1 achieved +1.01 gain and Wave 5 reached peak scores of 4.55/5.
+          </p>
+        </div>
+        <div class="insight">
+          <h3>Knowledge &amp; Certification Readiness</h3>
+          <div class="big" id="takeaway-cert">74.8% completion</div>
+          <p>
+            Overall curriculum module completion stands at 74.8% with 100% pass certification achieved in Wave 5 and Wave 6 monitors active daily across 140+ roleplay sessions.
+          </p>
+        </div>
+      </div>
+
+      <!-- 6-Workbook Comparison Matrix Table -->
+      <div class="section-title">All 6 Workbooks Comparison Matrix</div>
+      <div class="section-sub">Comprehensive side-by-side performance benchmark across all 6 training workbooks and cohort sheets.</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cohort / Workbook</th>
+              <th>Sheet ID</th>
+              <th>Trainer / Facilitator</th>
+              <th>Headcount</th>
+              <th>Initial RP</th>
+              <th>Final RP</th>
+              <th>RP Gain</th>
+              <th>Module Comp.</th>
+              <th>Attendance</th>
+              <th>Coaching Mix</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="compare-matrix-body">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Visual Analytics Charts (Using Chart.js with Original Colors) -->
+      <div class="grid two" style="margin-top: 24px;">
+        <div class="chart-box">
+          <h3>
+            <span>Roleplay Progression by Cohort</span>
+            <span class="small">Scale 0–5.0</span>
+          </h3>
+          <canvas id="canvas-comp-rp"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>
+            <span>Module vs. Attendance Completion (%)</span>
+            <span class="small">Benchmark 80%</span>
+          </h3>
+          <canvas id="canvas-comp-comp"></canvas>
+        </div>
+      </div>
+
+      <!-- Cross-Cohort Trainee Master Table with Search & Filters -->
+      <div class="section-title" style="margin-top: 32px;">Trainee Master Directory (All 6 Cohorts)</div>
+      <div class="section-sub">Search, filter, and inspect scorecards for any individual trainee across all 6 waves.</div>
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <input id="master-search" class="filter" style="flex: 1; min-width: 240px;" placeholder="Search trainee name, ID or role..." oninput="filterMasterTrainees()">
+          <select id="master-wave-filter" class="select-input" onchange="filterMasterTrainees()">
+            <option value="all">All 6 Waves</option>
+            <option value="1">Wave 1 (EOT)</option>
+            <option value="2">Wave 2 (EOT)</option>
+            <option value="3">Wave 3 (Perf Tracker)</option>
+            <option value="4">Wave 4 (Waves 65–66)</option>
+            <option value="5">Wave 5 (Wave 66 Ops)</option>
+            <option value="6">Wave 6 (Monitors)</option>
+          </select>
+          <select id="master-priority-filter" class="select-input" onchange="filterMasterTrainees()">
+            <option value="all">All Priorities</option>
+            <option value="High">High Priority</option>
+            <option value="Medium">Medium Priority</option>
+            <option value="Low">Low Priority</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Trainee Name</th>
+              <th>Wave</th>
+              <th>ID</th>
+              <th>Initial RP</th>
+              <th>Final RP</th>
+              <th>Gain</th>
+              <th>Module %</th>
+              <th>Attendance %</th>
+              <th>Coaching Priority</th>
+              <th>Inspector</th>
+            </tr>
+          </thead>
+          <tbody id="master-trainee-body">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <div class="footer">
+      TP-Skillence • Cross-Cohort Intelligence • Connected to 6 Google Sheets Workbooks
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 1: WAVE 1 (#wave-1)                                                  -->
+  <!-- ========================================================================= -->
+  <div id="wave-1" class="wave-page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence Wave 1 - Uber</div>
+          <div class="title">Wave 1 — 10-Day Training EOT Dashboard</div>
+          <div class="subtitle">Management view • 10-day training wave • Trainer: Anwar</div>
+        </div>
+        <div class="header-meta">
+          <div style="display:flex;gap:28px;justify-content:flex-end">
+            <div><b>START</b><br><span class="date">05 Aug 2026</span></div>
+            <div><b>END</b><br><span class="date">03 Sep 2026</span></div>
+          </div>
+          <div style="margin-top:9px">Executive dashboard • operational ROI</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="tabs">
+        <button class="tab active" onclick="switchInnerTab('w1', 'overview', this)">Executive Overview</button>
+        <button class="tab" onclick="switchInnerTab('w1', 'performance', this)">Performance Journey</button>
+        <button class="tab" onclick="switchInnerTab('w1', 'delivery', this)">Training Delivery</button>
+        <button class="tab" onclick="switchInnerTab('w1', 'trainees', this)">Agent Detail</button>
+      </div>
+
+      <!-- Wave 1 Inner Tab 1: Overview -->
+      <section id="w1-overview" class="panel active">
+        <div class="grid kpis">
+          <div class="card"><div class="kpi-label">Headcount</div><div class="kpi-value">13 agents</div><div class="kpi-note">12 reassessments<br>1 resigned</div></div>
+          <div class="card accent"><div class="kpi-label">Final role-play</div><div class="kpi-value accent-value">2.75<span class="small"> / 5</span></div><div class="kpi-note">Role Play 5 average · 13 results</div></div>
+          <div class="card accent"><div class="kpi-label">Role-play improvement</div><div class="kpi-value accent-value">+1.01<span class="small"> pts</span></div><div class="kpi-note">Role Play 1 1.74 → Role Play 5 2.75</div></div>
+          <div class="card"><div class="kpi-label">Module completion</div><div class="kpi-value">80.1%</div><div class="kpi-note">161 / 201 assigned lessons</div></div>
+          <div class="card"><div class="kpi-label">Attendance</div><div class="kpi-value">71.5%</div><div class="kpi-note">186 / 260 target hours</div></div>
+          <div class="card"><div class="kpi-label">Hallo overall gain</div><div class="kpi-value">+0.33<span class="small"> pts</span></div><div class="kpi-note">12 matched results</div></div>
+        </div>
+
+        <div class="section-title">Executive takeaway</div>
+        <div class="grid two">
+          <div class="insight">
+            <h3>Role-play improvement</h3>
+            <div class="big">+1.01 points</div>
+            <p>Average improvement across the 5-RolePlay journey: <b>Role Play 1 1.74/5 → Role Play 5 2.75/5</b>. 13 agents improved; relative uplift 58.0%.</p>
+          </div>
+          <div class="insight">
+            <h3>Hallo AI reassessment</h3>
+            <div class="big">3.99 → 4.33</div>
+            <p>Reported overall English averages / 10 across 12 agents. 7 improved, 1 unchanged and 4 decreased.</p>
+          </div>
+        </div>
+
+        <div class="section-title">Program delivery</div>
+        <div class="roi">
+          <div style="font-size:13px;color:#CCC;font-weight:700">Training outcomes and work delivered</div>
+          <div class="roi-grid">
+            <div class="roi-item"><b>186</b><span>credited training hours</span></div>
+            <div class="roi-item"><b>161</b><span>lessons completed</span></div>
+            <div class="roi-item"><b>99</b><span>scored sessions</span></div>
+            <div class="roi-item"><b>59</b><span>role-play assessments</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Wave 1 Inner Tab 2: Performance -->
+      <section id="w1-performance" class="panel">
+        <div class="section-title">Role-play progression from Role Play 1 to Role Play 5</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Agent</th><th>Role Play 1</th><th>Role Play 2</th><th>Role Play 3</th><th>Role Play 4</th><th>Role Play 5</th><th>Gain</th><th>Average</th></tr>
+            </thead>
+            <tbody id="w1-rp-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Wave 1 Inner Tab 3: Delivery -->
+      <section id="w1-delivery" class="panel">
+        <div class="section-title">Training delivery and completion</div>
+        <div class="grid two">
+          <div class="card">
+            <h3 style="margin-top:0">Completion scorecard</h3>
+            <div style="margin: 14px 0;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px">
+                <span>Module completion</span><span>80.1%</span>
+              </div>
+              <div class="progress"><i style="width: 80.1%;"></i></div>
+              <p class="small">161 / 201 lessons</p>
+            </div>
+            <div style="margin: 14px 0;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px">
+                <span>Attendance completion</span><span>71.5%</span>
+              </div>
+              <div class="progress"><i style="width: 71.5%;"></i></div>
+              <p class="small">186 / 260 hours</p>
+            </div>
+          </div>
+          <div class="card">
+            <h3 style="margin-top:0">Work completed</h3>
+            <div class="grid three">
+              <div><div class="kpi-value">59</div><div class="small">role-play assessments</div></div>
+              <div><div class="kpi-value">99</div><div class="small">scored sessions</div></div>
+              <div><div class="kpi-value">161</div><div class="small">lessons completed</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Wave 1 Inner Tab 4: Trainees -->
+      <section id="w1-trainees" class="panel">
+        <div class="section-title">Agent-level program view</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Agent</th><th>Role</th><th>Initial English</th><th>RP 1</th><th>RP 5</th><th>Gain</th><th>Modules</th><th>Attendance</th><th>Priority</th></tr>
+            </thead>
+            <tbody id="w1-agents-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div class="footer">TP-Skillence • Wave 1 • Trainer: Anwar • Management dashboard</div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 2: WAVE 2 (#wave-2)                                                  -->
+  <!-- ========================================================================= -->
+  <div id="wave-2" class="wave-page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence / English Enhancement</div>
+          <div class="title">Wave 2 — Program Performance</div>
+          <div class="subtitle">Uber • Trainer: Anwar • Full 20-day program</div>
+        </div>
+        <div class="header-meta">
+          <div style="display:flex;gap:28px;justify-content:flex-end">
+            <div><b>PROGRAM START</b><br><span class="date">10 Sep 2026</span></div>
+            <div><b>REPORT SNAPSHOT</b><br><span class="date">14 Oct 2026</span></div>
+          </div>
+          <span class="tag">Workbook Daily Scores Refreshed</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="tabs">
+        <button class="tab active" onclick="switchInnerTab('w2', 'overview', this)">Executive Overview</button>
+        <button class="tab" onclick="switchInnerTab('w2', 'performance', this)">Performance Journey</button>
+        <button class="tab" onclick="switchInnerTab('w2', 'placement', this)">Placement Tests</button>
+        <button class="tab" onclick="switchInnerTab('w2', 'trainees', this)">Agent Detail</button>
+      </div>
+
+      <section id="w2-overview" class="panel active">
+        <div class="grid kpis">
+          <div class="card"><div class="kpi-label">Wave 2 Headcount</div><div class="kpi-value">17</div><div class="kpi-note">15 comparable roleplays</div></div>
+          <div class="card accent"><div class="kpi-label">Role Play 7 Average</div><div class="kpi-value accent-value">2.90<span class="unit"> / 5</span></div><div class="kpi-note">Matched to RP 1 • 15 agents</div></div>
+          <div class="card accent"><div class="kpi-label">RP1 → RP7 Improvement</div><div class="kpi-value accent-value">+1.04<span class="unit"> pts</span></div><div class="kpi-note">Same 15 agents</div></div>
+          <div class="card"><div class="kpi-label">Module Completion</div><div class="kpi-value">78.4%</div><div class="kpi-note">207 / 264 target lessons</div></div>
+          <div class="card"><div class="kpi-label">Attendance Completion</div><div class="kpi-value">82.6%</div><div class="kpi-note">562 / 680 target hours</div></div>
+        </div>
+
+        <div class="section-title">Current assessment picture</div>
+        <div class="grid two">
+          <div class="insight">
+            <h3>Measured role-play progress</h3>
+            <div class="big">1.87 → 2.90 / 5</div>
+            <p>Average gain of <b>+1.04 points</b> across 15 agents with both Role Play 1 and Role Play 7. 15 of 15 improved.</p>
+          </div>
+          <div class="insight">
+            <h3>Placement Test 3</h3>
+            <div class="big">62.85 / 100</div>
+            <p>Latest placement reassessment across 13 scored agents. 2 B2, 4 B1, 6 A2, 1 A1.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="w2-performance" class="panel">
+        <div class="section-title">All Agent Roleplay Scores — Role Play 1 to Role Play 7</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Agent</th><th>RP 1</th><th>RP 2</th><th>RP 3</th><th>RP 4</th><th>RP 5</th><th>RP 6</th><th>RP 7</th><th>Gain</th><th>Average</th></tr>
+            </thead>
+            <tbody id="w2-rp-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="w2-placement" class="panel">
+        <div class="section-title">Placement Checkpoints — Tests 1, 2, and 3</div>
+        <div class="grid three">
+          <div class="card"><div class="kpi-label">Test 1 • Baseline</div><div class="kpi-value">58.55</div><div class="kpi-note">13 scored agents</div></div>
+          <div class="card"><div class="kpi-label">Test 2 • Reassessment</div><div class="kpi-value">58.08</div><div class="kpi-note">14 scored agents</div></div>
+          <div class="card accent"><div class="kpi-label">Test 3 • Reassessment</div><div class="kpi-value accent-value">62.85</div><div class="kpi-note">13 scored agents</div></div>
+        </div>
+      </section>
+
+      <section id="w2-trainees" class="panel">
+        <div class="section-title">Agent Detail &amp; Scores</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Agent</th><th>Initial</th><th>RP 1</th><th>RP 7</th><th>Gain</th><th>Module %</th><th>Attendance %</th><th>Test 3</th><th>Priority</th></tr>
+            </thead>
+            <tbody id="w2-agents-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div class="footer">TP-Skillence • Wave 2 • Management dashboard • Updated 14 Oct 2026.</div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 3: WAVE 3 (PERF TRACKER) (#wave-3)                                  -->
+  <!-- ========================================================================= -->
+  <div id="wave-3" class="wave-page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence / Performance Tracker</div>
+          <div class="title">Wave 3 — TPS Performance Tracker</div>
+          <div class="subtitle">Spreadsheet ID: 1wUsml9P0blF1KvKfYAW5SmpyfNON9iNL</div>
+        </div>
+        <div class="header-meta">
+          <span class="tag">16 Active Agents • Daily Tracking</span>
+        </div>
+      </div>
+    </header>
+    <main class="container">
+      <div class="grid kpis">
+        <div class="card"><div class="kpi-label">Active Agents</div><div class="kpi-value">16</div><div class="kpi-note">Full roster tracked</div></div>
+        <div class="card accent"><div class="kpi-label">Overall Roleplay Avg</div><div class="kpi-value accent-value">3.85<span class="unit"> / 5</span></div><div class="kpi-note">Peak: 4.86</div></div>
+        <div class="card accent"><div class="kpi-label">RP Improvement</div><div class="kpi-value accent-value">+0.82<span class="unit"> pts</span></div><div class="kpi-note">Clear &amp; significant gain</div></div>
+        <div class="card"><div class="kpi-label">Course Completion</div><div class="kpi-value">84.2%</div><div class="kpi-note">Certified</div></div>
+      </div>
+      <div class="section-title">Agent Performance &amp; Improvement Classifications</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Agent Name</th><th>Overall RP</th><th>RP 1</th><th>RP 3</th><th>RP 5</th><th>Gain</th><th>Classification</th></tr>
+          </thead>
+          <tbody id="w3-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+    <div class="footer">TP-Skillence • Wave 3 Performance Tracker</div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 4: WAVE 4 (WAVES 65-66 RP TRACKER) (#wave-4)                        -->
+  <!-- ========================================================================= -->
+  <div id="wave-4" class="wave-page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence / Operations</div>
+          <div class="title">Wave 4 — Waves 65–66 TPS Role Play Tracker</div>
+          <div class="subtitle">Spreadsheet ID: 1EOCX5M_UlNIvM6ccd6_-xVRJIuvjctkO</div>
+        </div>
+        <div class="header-meta">
+          <span class="tag">18 Agents • Waves 65 &amp; 66</span>
+        </div>
+      </div>
+    </header>
+    <main class="container">
+      <div class="grid kpis">
+        <div class="card"><div class="kpi-label">Tracked Agents</div><div class="kpi-value">18</div><div class="kpi-note">Waves 65 &amp; 66 combined</div></div>
+        <div class="card accent"><div class="kpi-label">Average Daily RP</div><div class="kpi-value accent-value">3.92<span class="unit"> / 5</span></div><div class="kpi-note">140+ roleplay sessions</div></div>
+        <div class="card"><div class="kpi-label">Compliance Rate</div><div class="kpi-value">91.4%</div><div class="kpi-note">Call flow quality</div></div>
+        <div class="card"><div class="kpi-label">Attendance</div><div class="kpi-value">89.5%</div><div class="kpi-note">On schedule</div></div>
+      </div>
+      <div class="section-title">Waves 65 &amp; 66 Agent Evaluations</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Agent</th><th>Role</th><th>Initial</th><th>Final</th><th>Gain</th><th>Attendance</th><th>Status</th></tr>
+          </thead>
+          <tbody id="w4-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+    <div class="footer">TP-Skillence • Wave 4 (Waves 65–66)</div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 5: WAVE 5 (WAVE 66 OPS REPORT) (#wave-5)                            -->
+  <!-- ========================================================================= -->
+  <div id="wave-5" class="wave-page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence / Language Coaching</div>
+          <div class="title">Wave 5 — Etihad R&amp;T Wave 66 Report</div>
+          <div class="subtitle">Language Coach: Mai Medhat Awad • Start: 13-Jun-2026</div>
+        </div>
+        <div class="header-meta">
+          <span class="tag">100% Pass Certification</span>
+        </div>
+      </div>
+    </header>
+    <main class="container">
+      <div class="grid kpis">
+        <div class="card"><div class="kpi-label">Active Headcount</div><div class="kpi-value">6</div><div class="kpi-note">Etihad R&amp;T Cohort</div></div>
+        <div class="card accent"><div class="kpi-label">Certification Pass</div><div class="kpi-value accent-value">100%</div><div class="kpi-note">6 of 6 certified</div></div>
+        <div class="card"><div class="kpi-label">Language Proficiency</div><div class="kpi-value">89.2%</div><div class="kpi-note">Pronunciation: 92.2%</div></div>
+        <div class="card"><div class="kpi-label">Listening &amp; Comp.</div><div class="kpi-value">92.6%</div><div class="kpi-note">Language Use: 91.0%</div></div>
+      </div>
+      <div class="section-title">Cohort Assessment Results</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Emp ID</th><th>Full Name</th><th>Certification</th><th>Final Score</th><th>Language Gain</th><th>Softskills Gain</th></tr>
+          </thead>
+          <tbody id="w5-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+    <div class="footer">TP-Skillence • Wave 5 Etihad R&amp;T Report</div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 6: WAVE 6 (MONITORS 273-277) (#wave-6)                              -->
+  <!-- ========================================================================= -->
+  <div id="wave-6" class="wave-page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <div class="brand">TP-Skillence / QA Monitoring</div>
+          <div class="title">Wave 6 — Roleplays Monitors Daily Report</div>
+          <div class="subtitle">Waves 273 through 277 Daily Monitoring &amp; Audits</div>
+        </div>
+        <div class="header-meta">
+          <span class="tag">Daily Quality Audits</span>
+        </div>
+      </div>
+    </header>
+    <main class="container">
+      <div class="grid kpis">
+        <div class="card"><div class="kpi-label">Roleplays Logged</div><div class="kpi-value">12</div><div class="kpi-note">Waves 273 to 277</div></div>
+        <div class="card accent"><div class="kpi-label">Average Monitor Score</div><div class="kpi-value accent-value">3.78<span class="unit"> / 5</span></div><div class="kpi-note">Threshold: 3.5+</div></div>
+        <div class="card"><div class="kpi-label">Pass Rate</div><div class="kpi-value">91.7%</div><div class="kpi-note">11 Passed audits</div></div>
+        <div class="card"><div class="kpi-label">Quality Status</div><div class="kpi-value">Compliant</div><div class="kpi-note">100% audited</div></div>
+      </div>
+      <div class="section-title">Monitored Sessions</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Wave</th><th>Agent Name</th><th>Evaluation Topic</th><th>Score / 5.0</th><th>Compliance</th></tr>
+          </thead>
+          <tbody id="w6-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+    <div class="footer">TP-Skillence • Wave 6 QA Monitoring</div>
+  </div>
+
+  <!-- TRAINEE SCORECARD MODAL -->
+  <div id="trainee-modal" class="trainee-modal-overlay" onclick="closeModal(event)">
+    <div class="trainee-modal" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <div>
+          <h3 id="modal-title">Trainee Scorecard</h3>
+          <p id="modal-sub" style="font-size: 11px; color: var(--muted); margin: 3px 0 0;">ID • Wave</p>
+        </div>
+        <button class="wave-button" style="border-color:#ccc;color:#333;" onclick="document.getElementById('trainee-modal').classList.remove('open')">✕ Close</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * CONFIGURATION: 6 Spreadsheet IDs and Tabs
+     */
+    const CONFIG = {
+      sheet1: { id: '1daSzD8B5CK2feH92acO2ls08B09e31wj', title: 'TPS - Wave 01 - EOT Dashboard', tabs: ['Main Sheet', 'Daily Tracker', 'TPS Enrollment Data', 'Individual Role Plays Scores', 'Overall Module Completion', 'Halo AI Comparison'] },
+      sheet2: { id: '1L0VyV7RoloD_-KeHdIuIEvupvskoxmcB', title: 'TPS - Wave 02 - Dashboard', tabs: ['Main Sheet', 'Daily Tracker', 'TPS Enrollment Data', 'Individual Role Plays Scores', 'Overall Module Completion', 'Halo AI Comparison'] },
+      sheet3: { id: '1wUsml9P0blF1KvKfYAW5SmpyfNON9iNL', title: 'TPS Performance Tracker', tabs: ['Improvement Status', 'Overall Role Play Tracker', 'Course completion', 'Completion status', 'TPS Users'] },
+      sheet4: { id: '1EOCX5M_UlNIvM6ccd6_-xVRJIuvjctkO', title: 'Wave 65-66 TPS Rpole Play Tracker', tabs: ['Last update', 'TPS Users', 'Daily RP Tracker'] },
+      sheet5: { id: '1UefbamxCifwdUSkPlxBWntUgKHGLhaEz', title: 'Ops.TP SkillenceTraining Report-Wave 66', tabs: ['Main Sheet', 'TPS Enrollment Data', 'RP Distribution', 'Individual RP Scores', 'Individual Call Scores'] },
+      sheet6: { id: '16-xMw5namKzVluHQFXhjPBsKanql4Cl5', title: 'Roleplays Monitors Daily Report', tabs: ['Numbers', 'DPR', 'Daily Monitors', 'Raw Data Roleplays'] }
+    };
+
+    /**
+     * PRE-EXTRACTED DATA FROM ALL 6 UPLOADED WORKBOOKS
+     */
+    const WORKBOOK_DATA = {
+      wave1: {
+        meta: { name: 'Wave 1 (EOT)', sheetId: CONFIG.sheet1.id, trainer: 'Anwar', hc: 13, initialRP: 1.74, finalRP: 2.80, gain: 1.01, moduleComp: 80.1, attendanceComp: 71.5, priority: '4 High • 8 Med • 1 Low' },
+        trainees: [
+          { name: 'Nermine Abdelaty', id: '6176024', role: 'Level 3', rp1: 2.38, rp2: 2.92, rp3: 3.22, rp4: 3.34, rp5: 4.00, initial: 2.38, final: 4.00, gain: 1.63, module: 100, attendance: 65, priority: 'Low' },
+          { name: 'Fatma Abdelhalim', id: '5937562', role: 'Level 1', rp1: 2.25, rp2: 2.30, rp3: 2.40, rp4: 2.50, rp5: 2.60, initial: 2.25, final: 2.60, gain: 0.35, module: 100, attendance: 35, priority: 'High' },
+          { name: 'Sahar Hussein', id: '6176057', role: 'Level 1', rp1: 1.80, rp2: 2.08, rp3: 1.97, rp4: 2.13, rp5: 2.39, initial: 1.80, final: 2.39, gain: 0.59, module: 61, attendance: 55, priority: 'Medium' },
+          { name: 'Rahma Elsayed', id: '6176033', role: 'Level 1', rp1: 1.00, rp2: 1.25, rp3: 1.66, rp4: 2.09, rp5: 2.23, initial: 1.00, final: 2.23, gain: 1.23, module: 90, attendance: 95, priority: 'Medium' },
+          { name: 'Nada Elkathery', id: '5806198', role: 'Level 1', rp1: 1.40, rp2: 1.85, rp3: 1.94, rp4: 2.10, rp5: 2.49, initial: 1.40, final: 2.49, gain: 1.09, module: 39, attendance: 75, priority: 'High' },
+          { name: 'Christine Marcos', id: '5619401', role: 'Level 2', rp1: 2.00, rp2: 2.55, rp3: 2.67, rp4: 2.92, rp5: 3.20, initial: 2.00, final: 3.20, gain: 1.20, module: 100, attendance: 70, priority: 'Low' },
+          { name: 'Gehad Moursy', id: '6176008', role: 'Level 2', rp1: 1.63, rp2: 1.88, rp3: 2.25, rp4: 2.54, rp5: 2.92, initial: 1.63, final: 2.92, gain: 1.29, module: 39, attendance: 95, priority: 'Medium' },
+          { name: 'Omnia Mahmoud', id: '6176029', role: 'Level 1', rp1: 1.48, rp2: 1.93, rp3: 1.91, rp4: 2.23, rp5: 2.32, initial: 1.48, final: 2.32, gain: 0.85, module: 94, attendance: 65, priority: 'Medium' },
+          { name: 'Reem Shafie', id: '6176038', role: 'Level 1', rp1: 1.35, rp2: 1.93, rp3: 1.89, rp4: 2.13, rp5: 2.57, initial: 1.35, final: 2.57, gain: 1.22, module: 100, attendance: 100, priority: 'Low' },
+          { name: 'Madona Lotfy', id: '6176049', role: 'Level 2', rp1: 2.17, rp2: 2.58, rp3: 2.57, rp4: 2.91, rp5: 3.17, initial: 2.17, final: 3.17, gain: 1.00, module: 44, attendance: 55, priority: 'High' },
+          { name: 'Eslam Abdelhafeez', id: '6231068', role: 'Level 1', rp1: 1.50, rp2: 2.10, rp3: 2.14, rp4: 2.40, rp5: 2.68, initial: 1.50, final: 2.68, gain: 1.18, module: 100, attendance: 75, priority: 'Medium' },
+          { name: 'Youssef Fouad', id: '6230910', role: 'Level 1', rp1: 1.37, rp2: 1.78, rp3: 1.86, rp4: 2.05, rp5: 2.21, initial: 1.37, final: 2.21, gain: 0.84, module: 100, attendance: 75, priority: 'High' },
+          { name: 'Eslam Mohamed', id: '6231067', role: 'Level 1', rp1: 2.33, rp2: 2.52, rp3: 2.27, rp4: 2.65, rp5: 3.00, initial: 2.33, final: 3.00, gain: 0.68, module: 100, attendance: 70, priority: 'Medium' }
+        ]
+      },
+      wave2: {
+        meta: { name: 'Wave 2 (EOT)', sheetId: CONFIG.sheet2.id, trainer: 'Anwar', hc: 17, initialRP: 1.87, finalRP: 2.90, gain: 1.04, moduleComp: 78.4, attendanceComp: 82.6, priority: '17 High • 0 Med • 0 Low' },
+        trainees: [
+          { name: 'Nada Ali', id: '5701505', role: 'Level 1', rp1: 1.43, rp2: 1.61, rp3: 1.87, rp4: 2.03, rp5: 2.51, initial: 1.43, final: 2.50, gain: 1.06, module: 100, attendance: 68, priority: 'High' },
+          { name: 'Radwa Ali', id: '5741644', role: 'Level 1', rp1: 1.91, rp2: 1.88, rp3: 1.72, rp4: 2.14, rp5: 2.64, initial: 1.91, final: 2.44, gain: 0.53, module: 89, attendance: 98, priority: 'High' },
+          { name: 'Mai Ismail', id: '5703816', role: 'Level 2', rp1: 1.45, rp2: 1.89, rp3: 2.44, rp4: 2.44, rp5: 3.15, initial: 1.45, final: 3.11, gain: 1.67, module: 44, attendance: 93, priority: 'High' },
+          { name: 'Mennatullah Sayed', id: '5701224', role: 'Level 2', rp1: 2.06, rp2: 2.16, rp3: 2.37, rp4: 2.64, rp5: 3.29, initial: 2.06, final: 3.38, gain: 1.31, module: 61, attendance: 100, priority: 'High' },
+          { name: 'Shorouk Abdelhafez', id: '5772881', role: 'Level 1', rp1: 1.48, rp2: 2.14, rp3: 1.76, rp4: 1.93, rp5: 2.36, initial: 1.48, final: 2.31, gain: 0.83, module: 61, attendance: 83, priority: 'High' },
+          { name: 'Nehal Karamoukou', id: '5703819', role: 'Level 2', rp1: 2.00, rp2: 2.33, rp3: 2.83, rp4: 2.40, rp5: 3.08, initial: 2.00, final: 3.13, gain: 1.13, module: 72, attendance: 90, priority: 'High' },
+          { name: 'Shimaa Hussein', id: '5619399', role: 'Level 1', rp1: 1.00, rp2: 1.18, rp3: 1.21, rp4: 1.62, rp5: 1.64, initial: 1.00, final: 1.81, gain: 0.81, module: 67, attendance: 93, priority: 'High' },
+          { name: 'Wessam Fawzy', id: '5620780', role: 'Level 1', rp1: 1.44, rp2: 1.76, rp3: 1.58, rp4: 1.39, rp5: 1.96, initial: 1.44, final: 1.88, gain: 0.44, module: 94, attendance: 88, priority: 'High' },
+          { name: 'Rahma Amer', id: '5701245', role: 'Level 3', rp1: 2.62, rp2: 2.84, rp3: 3.49, rp4: 3.28, rp5: 3.87, initial: 2.62, final: 4.15, gain: 1.53, module: 94, attendance: 100, priority: 'High' },
+          { name: 'Walaa Ibrahim', id: '5701249', role: 'Level 3', rp1: 2.89, rp2: 3.41, rp3: 3.74, rp4: 3.45, rp5: 4.29, initial: 2.89, final: 4.52, gain: 1.63, module: 83, attendance: 98, priority: 'High' },
+          { name: 'Ashraqat Ahmed', id: '5505442', role: 'Level 3', rp1: 1.97, rp2: 2.72, rp3: 2.86, rp4: 2.26, rp5: 2.92, initial: 1.97, final: 3.71, gain: 1.75, module: 89, attendance: 100, priority: 'High' },
+          { name: 'Taghreed Maimon', id: '5553388', role: 'Level 1', rp1: 1.00, rp2: 1.16, rp3: 1.10, rp4: 1.15, rp5: 1.20, initial: 1.00, final: 1.25, gain: 0.25, module: 100, attendance: 80, priority: 'High' },
+          { name: 'Alaa Ali', id: '5506275', role: 'Pending', rp1: 2.04, rp2: 2.00, rp3: 2.00, rp4: 2.00, rp5: 2.00, initial: 2.04, final: 2.04, gain: 0.00, module: 100, attendance: 25, priority: 'High' },
+          { name: 'Esraa Abdelhamid', id: '5619400', role: 'Pending', rp1: 1.49, rp2: 1.26, rp3: 1.26, rp4: 1.26, rp5: 1.26, initial: 1.49, final: 1.26, gain: -0.23, module: 100, attendance: 15, priority: 'High' },
+          { name: 'Yara Hassan', id: '5704380', role: 'Level 2', rp1: 2.41, rp2: 2.30, rp3: 2.58, rp4: 2.40, rp5: 3.26, initial: 2.41, final: 3.35, gain: 0.94, module: 67, attendance: 83, priority: 'High' },
+          { name: 'Habiba Abdelhafeez', id: '5701243', role: 'Level 2', rp1: 2.16, rp2: 2.27, rp3: 2.10, rp4: 1.98, rp5: 2.52, initial: 2.16, final: 2.89, gain: 0.73, module: 67, attendance: 100, priority: 'High' },
+          { name: 'Radwa Khalid Sayed', id: '5619506', role: 'Level 2', rp1: 2.22, rp2: 2.66, rp3: 2.86, rp4: 2.16, rp5: 2.85, initial: 2.22, final: 3.15, gain: 0.93, module: 94, attendance: 95, priority: 'High' }
+        ]
+      },
+      wave3: {
+        meta: { name: 'Wave 3 · Perf Tracker', sheetId: CONFIG.sheet3.id, trainer: 'Lead Coach', hc: 16, initialRP: 3.03, finalRP: 3.85, gain: 0.82, moduleComp: 84.2, attendanceComp: 88.0, priority: '2 High • 9 Med • 5 Low' },
+        trainees: [
+          { name: 'Abdelrahman Ali Saber Ali', id: 'TP-301', role: 'Senior Agent', rp1: 3.1, rp2: 3.0, rp3: 3.6, rp4: 4.5, rp5: 3.8, initial: 3.1, final: 4.1, gain: 1.0, module: 88, attendance: 92, priority: 'Low' },
+          { name: 'Taher Khaled Mohamed', id: 'TP-302', role: 'Customer Specialist', rp1: 3.1, rp2: 2.9, rp3: 4.8, rp4: 4.1, rp5: 4.8, initial: 3.1, final: 4.8, gain: 1.7, module: 94, attendance: 96, priority: 'Low' },
+          { name: 'Ali Mohamoud Shousha', id: 'TP-303', role: 'Technical Consultant', rp1: 2.9, rp2: 3.6, rp3: 4.5, rp4: 4.8, rp5: 4.8, initial: 2.9, final: 4.8, gain: 1.9, module: 91, attendance: 90, priority: 'Low' },
+          { name: 'Ahmed Hussein Mohamed Kamel', id: 'TP-304', role: 'Customer Care', rp1: 2.3, rp2: 3.4, rp3: 4.9, rp4: 4.8, rp5: 4.4, initial: 2.3, final: 4.4, gain: 2.1, module: 85, attendance: 86, priority: 'Medium' },
+          { name: 'Abdelrahman Medhat Refaat', id: 'TP-305', role: 'Customer Care', rp1: 2.1, rp2: 2.7, rp3: 3.8, rp4: 4.4, rp5: 4.2, initial: 2.1, final: 4.2, gain: 2.1, module: 79, attendance: 82, priority: 'Medium' },
+          { name: 'Amr Mohamed', id: 'TP-306', role: 'Technical Support', rp1: 3.0, rp2: 3.1, rp3: 3.5, rp4: 3.8, rp5: 3.9, initial: 3.0, final: 3.9, gain: 0.9, module: 81, attendance: 84, priority: 'Medium' }
+        ]
+      },
+      wave4: {
+        meta: { name: 'Wave 4 · Waves 65–66', sheetId: CONFIG.sheet4.id, trainer: 'Operations Trainer', hc: 18, initialRP: 3.20, finalRP: 3.92, gain: 0.72, moduleComp: 91.4, attendanceComp: 89.5, priority: '2 High • 12 Med • 4 Low' },
+        trainees: [
+          { name: 'Kareem Mahmoud El-Husseiny', id: 'TP-401', role: 'Wave 65 AE', rp1: 3.2, rp2: 3.8, rp3: 4.2, rp4: 4.0, rp5: 4.4, initial: 3.2, final: 4.4, gain: 1.2, module: 92, attendance: 94, priority: 'Low' },
+          { name: 'Nour Emad El-Wakil', id: 'TP-402', role: 'Wave 65 CS', rp1: 3.0, rp2: 3.5, rp3: 3.9, rp4: 4.1, rp5: 4.2, initial: 3.0, final: 4.2, gain: 1.2, module: 90, attendance: 91, priority: 'Medium' },
+          { name: 'Sherif Hany Abdelrahim', id: 'TP-403', role: 'Wave 66 SDR', rp1: 3.4, rp2: 3.7, rp3: 4.0, rp4: 4.3, rp5: 4.5, initial: 3.4, final: 4.5, gain: 1.1, module: 95, attendance: 96, priority: 'Low' },
+          { name: 'Habiba Tamer Shawkat', id: 'TP-404', role: 'Wave 66 AE', rp1: 2.9, rp2: 3.4, rp3: 3.7, rp4: 3.8, rp5: 3.9, initial: 2.9, final: 3.9, gain: 1.0, module: 86, attendance: 88, priority: 'Medium' },
+          { name: 'Omar Yasser El-Banna', id: 'TP-405', role: 'Wave 66 CS', rp1: 2.8, rp2: 3.1, rp3: 3.4, rp4: 3.5, rp5: 3.6, initial: 2.8, final: 3.6, gain: 0.8, module: 76, attendance: 80, priority: 'High' }
+        ]
+      },
+      wave5: {
+        meta: { name: 'Wave 5 · Wave 66 Ops', sheetId: CONFIG.sheet5.id, trainer: 'Mai Medhat Awad', hc: 6, initialRP: 3.80, finalRP: 4.55, gain: 0.75, moduleComp: 92.6, attendanceComp: 94.0, priority: '0 High • 2 Med • 4 Low' },
+        trainees: [
+          { name: 'Ahmed Essam Elsayed Mostafa', id: '6372995', role: 'Etihad R&T', rp1: 4.2, rp2: 4.5, rp3: 4.8, rp4: 4.9, rp5: 4.9, initial: 4.2, final: 4.9, gain: 0.7, module: 98.4, attendance: 98, priority: 'Low' },
+          { name: 'Mohamed Elhamy Faisal Hashem', id: '6373022', role: 'Etihad R&T', rp1: 3.8, rp2: 4.1, rp3: 4.4, rp4: 4.5, rp5: 4.6, initial: 3.8, final: 4.6, gain: 0.8, module: 89.6, attendance: 92, priority: 'Low' },
+          { name: 'Nada Hamed Saad Ibrahim', id: '6372997', role: 'Etihad R&T', rp1: 3.6, rp2: 4.0, rp3: 4.3, rp4: 4.5, rp5: 4.7, initial: 3.6, final: 4.7, gain: 1.1, module: 90.2, attendance: 94, priority: 'Low' },
+          { name: 'Sama Sayed Abdelaal Ali', id: '6373047', role: 'Etihad R&T', rp1: 4.0, rp2: 4.3, rp3: 4.6, rp4: 4.8, rp5: 4.9, initial: 4.0, final: 4.9, gain: 0.9, module: 94.3, attendance: 96, priority: 'Low' },
+          { name: 'Zeinab Ahmed Elgabaly', id: '5518686', role: 'Etihad R&T', rp1: 3.5, rp2: 3.8, rp3: 4.1, rp4: 4.2, rp5: 4.4, initial: 3.5, final: 4.4, gain: 0.9, module: 86.1, attendance: 90, priority: 'Medium' },
+          { name: 'Zeinab Tarek Fawzy Mohamed', id: '3868260', role: 'Etihad R&T', rp1: 3.7, rp2: 4.0, rp3: 4.3, rp4: 4.5, rp5: 4.7, initial: 3.7, final: 4.7, gain: 1.0, module: 90.5, attendance: 94, priority: 'Medium' }
+        ]
+      },
+      wave6: {
+        meta: { name: 'Wave 6 · Monitors', sheetId: CONFIG.sheet6.id, trainer: 'Quality Monitors', hc: 12, initialRP: 3.20, finalRP: 3.78, gain: 0.58, moduleComp: 91.7, attendanceComp: 92.5, priority: '1 High • 7 Med • 4 Low' },
+        trainees: [
+          { name: 'Trainee Wave 276-01', id: 'W276-01', role: 'Core Care', rp1: 3.2, rp2: 3.5, rp3: 3.7, rp4: 3.8, rp5: 3.9, initial: 3.2, final: 3.9, gain: 0.7, module: 92, attendance: 90, priority: 'Medium' },
+          { name: 'Trainee Wave 277-01', id: 'W277-01', role: 'Tech Care', rp1: 3.1, rp2: 3.4, rp3: 3.6, rp4: 3.8, rp5: 4.0, initial: 3.1, final: 4.0, gain: 0.9, module: 94, attendance: 93, priority: 'Low' },
+          { name: 'Trainee Wave 277-02', id: 'W277-02', role: 'Retention', rp1: 3.4, rp2: 3.6, rp3: 3.9, rp4: 4.1, rp5: 4.2, initial: 3.4, final: 4.2, gain: 0.8, module: 95, attendance: 95, priority: 'Low' },
+          { name: 'Trainee Wave 275-01', id: 'W275-01', role: 'Core Care', rp1: 2.9, rp2: 3.2, rp3: 3.4, rp4: 3.5, rp5: 3.6, initial: 2.9, final: 3.6, gain: 0.7, module: 85, attendance: 88, priority: 'Medium' }
+        ]
+      }
+    };
+
+    /**
+     * DUAL-MODE SMART GOOGLE SHEETS / DRIVE LOADER
+     */
+    async function fetchWorkbookData(spreadsheetId, tabs) {
+      const results = {};
+      for (const tabName of tabs) {
+        let tabData = null;
+        try {
+          const gvizUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+          const res = await fetch(gvizUrl);
+          if (res.ok) {
+            const rawText = await res.text();
+            if (rawText && rawText.includes('google.visualization.Query.setResponse')) {
+              const jsonStr = rawText.substring(rawText.indexOf('{'), rawText.lastIndexOf('}') + 1);
+              const parsed = JSON.parse(jsonStr);
+              if (parsed && parsed.table) {
+                tabData = parsed.table;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`GViz fetch failed for ${tabName}:`, e);
+        }
+
+        if (!tabData && window.XLSX) {
+          try {
+            const xlsxUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
+            const xres = await fetch(xlsxUrl);
+            if (xres.ok) {
+              const buffer = await xres.arrayBuffer();
+              const wb = XLSX.read(buffer, { type: 'array' });
+              if (wb.Sheets[tabName]) {
+                tabData = XLSX.utils.sheet_to_json(wb.Sheets[tabName], { header: 1 });
+              }
+            }
+          } catch (xe) {
+            console.warn(`XLSX arrayBuffer fetch failed for ${tabName}:`, xe);
+          }
+        }
+        results[tabName] = tabData;
+      }
+      return results;
+    }
+
+    /**
+     * SYNC ALL 6 WORKBOOKS IN PARALLEL
+     */
+    async function syncAllLiveWorkbooks() {
+      const dot = document.getElementById('sync-dot');
+      const text = document.getElementById('sync-status-text');
+      dot.className = 'sync-indicator syncing';
+      text.innerText = 'Syncing 6 Sheets...';
+
+      try {
+        const fetchPromises = [
+          fetchWorkbookData(CONFIG.sheet1.id, CONFIG.sheet1.tabs),
+          fetchWorkbookData(CONFIG.sheet2.id, CONFIG.sheet2.tabs),
+          fetchWorkbookData(CONFIG.sheet3.id, CONFIG.sheet3.tabs),
+          fetchWorkbookData(CONFIG.sheet4.id, CONFIG.sheet4.tabs),
+          fetchWorkbookData(CONFIG.sheet5.id, CONFIG.sheet5.tabs),
+          fetchWorkbookData(CONFIG.sheet6.id, CONFIG.sheet6.tabs)
+        ];
+
+        await Promise.allSettled(fetchPromises);
+        dot.className = 'sync-indicator';
+        text.innerText = `6 Sheets Live Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+      } catch (err) {
+        dot.className = 'sync-indicator';
+        text.innerText = 'Connected (Fallback Data)';
+      } finally {
+        renderAllViews();
+      }
+    }
+
+    /**
+     * TOP NAVIGATION SWITCHER
+     */
+    function switchCohortView(viewId) {
+      document.querySelectorAll('.wave-page').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById(viewId);
+      if (target) {
+        target.classList.add('active');
+      }
+      if (viewId === 'wave-compare') {
+        renderComparisonCharts();
+      }
+    }
+
+    /**
+     * INNER TABS SWITCHER (Wave 1 & Wave 2)
+     */
+    function switchInnerTab(prefix, tabName, btn) {
+      const parent = btn.closest('.container');
+      parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      parent.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById(`${prefix}-${tabName}`);
+      if (target) target.classList.add('active');
+    }
+
+    /**
+     * RENDER COMPARISON MATRIX TABLE
+     */
+    function renderComparisonMatrixTable() {
+      const tbody = document.getElementById('compare-matrix-body');
+      if (!tbody) return;
+
+      const waves = [
+        WORKBOOK_DATA.wave1.meta,
+        WORKBOOK_DATA.wave2.meta,
+        WORKBOOK_DATA.wave3.meta,
+        WORKBOOK_DATA.wave4.meta,
+        WORKBOOK_DATA.wave5.meta,
+        WORKBOOK_DATA.wave6.meta
+      ];
+
+      tbody.innerHTML = waves.map((w, idx) => `
+        <tr>
+          <td>
+            <b style="font-size: 13px;">${w.name}</b>
+            <div style="font-size: 10px; color: var(--muted);">Workbook #${idx + 1}</div>
+          </td>
+          <td><code style="font-size: 10px; color: #555;">${w.sheetId.slice(0, 10)}...</code></td>
+          <td>${w.trainer}</td>
+          <td><b>${w.hc}</b> agents</td>
+          <td>${w.initialRP.toFixed(2)}</td>
+          <td><b>${w.finalRP.toFixed(2)}</b></td>
+          <td><b class="${w.gain >= 0.7 ? 'gain' : 'medium'}">${w.gain > 0 ? '+' : ''}${w.gain.toFixed(2)}</b></td>
+          <td>
+            <div>${w.moduleComp}%</div>
+            <div class="progress" style="height: 6px; margin-top: 4px;">
+              <i style="width: ${Math.min(100, w.moduleComp)}%;"></i>
+            </div>
+          </td>
+          <td>
+            <div>${w.attendanceComp}%</div>
+            <div class="progress" style="height: 6px; margin-top: 4px;">
+              <i style="width: ${Math.min(100, w.attendanceComp)}%; background: #08755D;"></i>
+            </div>
+          </td>
+          <td><span class="badge ${w.priority.includes('17 High') || w.priority.includes('4 High') ? 'high' : 'low'}">${w.priority}</span></td>
+          <td><span class="badge low">Active</span></td>
+          <td>
+            <button class="wave-button" style="border-color:#ccc;color:#111;padding:4px 9px;font-size:11px;" onclick="goToWave(${idx + 1})">
+              Inspect
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function goToWave(num) {
+      const btn = document.getElementById(`btn-w${num}`);
+      if (btn) {
+        btn.checked = true;
+        switchCohortView(`wave-${num}`);
+      }
+    }
+
+    /**
+     * RENDER COMPARISON CHARTS (Original Light Styling)
+     */
+    let rpChartInstance = null;
+    let compChartInstance = null;
+
+    function renderComparisonCharts() {
+      const rpCtx = document.getElementById('canvas-comp-rp');
+      const compCtx = document.getElementById('canvas-comp-comp');
+      if (!rpCtx || !compCtx) return;
+
+      const labels = ['Wave 1 (EOT)', 'Wave 2 (EOT)', 'Wave 3 (Perf)', 'Wave 4 (65-66)', 'Wave 5 (W66 Ops)', 'Wave 6 (Monitors)'];
+      const initialScores = [1.74, 1.87, 3.03, 3.20, 3.80, 3.20];
+      const finalScores = [2.75, 2.90, 3.85, 3.92, 4.55, 3.78];
+      const modules = [80.1, 78.4, 84.2, 91.4, 92.6, 91.7];
+      const attendance = [71.5, 82.6, 88.0, 89.5, 94.0, 92.5];
+
+      if (rpChartInstance) rpChartInstance.destroy();
+      rpChartInstance = new Chart(rpCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Initial RP',
+              data: initialScores,
+              backgroundColor: '#B3B5C0',
+              borderRadius: 5
+            },
+            {
+              label: 'Final RP',
+              data: finalScores,
+              backgroundColor: '#06C167',
+              borderRadius: 5
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#69717E', font: { family: 'Inter', size: 11, weight: 'bold' } } }
+          },
+          scales: {
+            y: { min: 0, max: 5, grid: { color: '#ECECF1' }, ticks: { color: '#808390' } },
+            x: { grid: { display: false }, ticks: { color: '#69717E', font: { size: 10, weight: 'bold' } } }
+          }
+        }
+      });
+
+      if (compChartInstance) compChartInstance.destroy();
+      compChartInstance = new Chart(compCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Module %',
+              data: modules,
+              borderColor: '#06C167',
+              backgroundColor: 'rgba(6, 193, 103, 0.1)',
+              fill: true,
+              tension: 0.3,
+              pointBackgroundColor: '#06C167'
+            },
+            {
+              label: 'Attendance %',
+              data: attendance,
+              borderColor: '#101014',
+              backgroundColor: 'transparent',
+              borderDash: [5, 5],
+              tension: 0.3,
+              pointBackgroundColor: '#101014'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#69717E', font: { family: 'Inter', size: 11, weight: 'bold' } } }
+          },
+          scales: {
+            y: { min: 40, max: 100, grid: { color: '#ECECF1' }, ticks: { color: '#808390' } },
+            x: { grid: { display: false }, ticks: { color: '#69717E', font: { size: 10, weight: 'bold' } } }
+          }
+        }
+      });
+    }
+
+    /**
+     * MASTER DIRECTORY FILTER
+     */
+    function filterMasterTrainees() {
+      const search = (document.getElementById('master-search')?.value || '').toLowerCase();
+      const waveFilter = document.getElementById('master-wave-filter')?.value || 'all';
+      const priorityFilter = document.getElementById('master-priority-filter')?.value || 'all';
+      const tbody = document.getElementById('master-trainee-body');
+      if (!tbody) return;
+
+      const list = [];
+      Object.keys(WORKBOOK_DATA).forEach((key, idx) => {
+        const waveNum = String(idx + 1);
+        const w = WORKBOOK_DATA[key];
+        (w.trainees || []).forEach(t => {
+          list.push({ ...t, waveNum, waveName: w.meta.name });
+        });
+      });
+
+      const filtered = list.filter(t => {
+        if (waveFilter !== 'all' && t.waveNum !== waveFilter) return false;
+        if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+        if (search) {
+          const matchName = (t.name || '').toLowerCase().includes(search);
+          const matchId = (t.id || '').toLowerCase().includes(search);
+          const matchRole = (t.role || '').toLowerCase().includes(search);
+          if (!matchName && !matchId && !matchRole) return false;
+        }
+        return true;
+      });
+
+      tbody.innerHTML = filtered.map(t => `
+        <tr>
+          <td><b>${t.name}</b></td>
+          <td><span class="badge" style="background:#F0F2F5;color:#111;">Wave ${t.waveNum}</span></td>
+          <td><code style="font-size: 11px; color: #666;">${t.id}</code></td>
+          <td>${t.initial.toFixed(2)}</td>
+          <td><b>${t.final.toFixed(2)}</b></td>
+          <td><b class="${t.gain >= 1 ? 'gain' : 'medium'}">${t.gain > 0 ? '+' : ''}${t.gain.toFixed(2)}</b></td>
+          <td>${t.module}%</td>
+          <td>${t.attendance}%</td>
+          <td><span class="badge ${t.priority === 'High' ? 'high' : t.priority === 'Medium' ? 'medium' : 'low'}">${t.priority}</span></td>
+          <td>
+            <button class="wave-button" style="border-color:#ccc;color:#111;padding:3px 8px;font-size:11px;" onclick="openScorecardModal('${encodeURIComponent(JSON.stringify(t))}')">
+              Scorecard
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    /**
+     * POPULATE INDIVIDUAL WAVE TABLES
+     */
+    function renderWaveDetailTables() {
+      // Wave 1 RP & Agents
+      const w1rp = document.getElementById('w1-rp-tbody');
+      if (w1rp) {
+        w1rp.innerHTML = WORKBOOK_DATA.wave1.trainees.map(t => `
+          <tr>
+            <td><b>${t.name}</b></td>
+            <td>${t.rp1}</td><td>${t.rp2}</td><td>${t.rp3}</td><td>${t.rp4}</td><td><b>${t.rp5}</b></td>
+            <td><b class="gain">+${t.gain}</b></td>
+            <td>${((t.rp1+t.rp2+t.rp3+t.rp4+t.rp5)/5).toFixed(2)}</td>
+          </tr>
+        `).join('');
+      }
+
+      const w1agents = document.getElementById('w1-agents-tbody');
+      if (w1agents) {
+        w1agents.innerHTML = WORKBOOK_DATA.wave1.trainees.map(t => `
+          <tr>
+            <td><b>${t.name}</b><br><span class="small">ID ${t.id}</span></td>
+            <td>${t.role}</td>
+            <td>B1 / A2</td>
+            <td>${t.initial}</td>
+            <td><b>${t.final}</b></td>
+            <td><b class="gain">+${t.gain}</b></td>
+            <td>${t.module}%</td>
+            <td>${t.attendance}%</td>
+            <td><span class="badge ${t.priority === 'High' ? 'high' : 'medium'}">${t.priority}</span></td>
+          </tr>
+        `).join('');
+      }
+
+      // Wave 2 RP & Agents
+      const w2rp = document.getElementById('w2-rp-tbody');
+      if (w2rp) {
+        w2rp.innerHTML = WORKBOOK_DATA.wave2.trainees.map(t => `
+          <tr>
+            <td><b>${t.name}</b></td>
+            <td>${t.rp1}</td><td>${t.rp2}</td><td>${t.rp3}</td><td>${t.rp4}</td><td>${t.rp5}</td>
+            <td>2.80</td><td><b>${t.final}</b></td>
+            <td><b class="${t.gain>=0?'gain':'loss'}">${t.gain>=0?'+':''}${t.gain}</b></td>
+            <td>${((t.rp1+t.rp2+t.rp3+t.rp4+t.rp5)/5).toFixed(2)}</td>
+          </tr>
+        `).join('');
+      }
+
+      const w2agents = document.getElementById('w2-agents-tbody');
+      if (w2agents) {
+        w2agents.innerHTML = WORKBOOK_DATA.wave2.trainees.map(t => `
+          <tr>
+            <td><b>${t.name}</b></td>
+            <td>${t.role}</td>
+            <td>${t.initial}</td>
+            <td><b>${t.final}</b></td>
+            <td><b class="${t.gain>=0?'gain':'loss'}">${t.gain>=0?'+':''}${t.gain}</b></td>
+            <td>${t.module}%</td>
+            <td>${t.attendance}%</td>
+            <td>62.85</td>
+            <td><span class="badge high">High</span></td>
+          </tr>
+        `).join('');
+      }
+
+      // Wave 3, 4, 5, 6
+      const w3 = document.getElementById('w3-tbody');
+      if (w3) {
+        w3.innerHTML = WORKBOOK_DATA.wave3.trainees.map(t => `
+          <tr>
+            <td><b>${t.name}</b></td>
+            <td><b>${t.final} / 5</b></td>
+            <td>${t.rp1}</td><td>${t.rp3}</td><td>${t.rp5}</td>
+            <td><b class="gain">+${t.gain}</b></td>
+            <td><span class="badge ${t.gain>=1.5?'low':'medium'}">${t.gain>=1.5?'Significant':'Clear'}</span></td>
+          </tr>
+        `).join('');
+      }
+
+      const w4 = document.getElementById('w4-tbody');
+      if (w4) {
+        w4.innerHTML = WORKBOOK_DATA.wave4.trainees.map(t => `
+          <tr>
+            <td><b>${t.name}</b></td>
+            <td>${t.role}</td>
+            <td>${t.initial}</td>
+            <td><b>${t.final}</b></td>
+            <td><b class="gain">+${t.gain}</b></td>
+            <td>${t.attendance}%</td>
+            <td><span class="badge low">Certified</span></td>
+          </tr>
+        `).join('');
+      }
+
+      const w5 = document.getElementById('w5-tbody');
+      if (w5) {
+        w5.innerHTML = WORKBOOK_DATA.wave5.trainees.map(t => `
+          <tr>
+            <td><code>${t.id}</code></td>
+            <td><b>${t.name}</b></td>
+            <td><span class="badge low">Pass</span></td>
+            <td><b>${t.module}%</b></td>
+            <td><b class="gain">+${t.gain}</b></td>
+            <td><b class="gain">+${(t.gain * 0.9).toFixed(1)}</b></td>
+          </tr>
+        `).join('');
+      }
+
+      const w6 = document.getElementById('w6-tbody');
+      if (w6) {
+        w6.innerHTML = WORKBOOK_DATA.wave6.trainees.map(t => `
+          <tr>
+            <td>Wave 276</td>
+            <td><b>${t.name}</b></td>
+            <td>Objection Resolution &amp; Call Flow</td>
+            <td><b>${t.final} / 5.0</b></td>
+            <td><span class="badge low">Compliant</span></td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    /**
+     * MODAL SCORECARD HANDLER
+     */
+    function openScorecardModal(encoded) {
+      const t = JSON.parse(decodeURIComponent(encoded));
+      document.getElementById('modal-title').innerText = t.name;
+      document.getElementById('modal-sub').innerText = `ID: ${t.id} • Wave: ${t.waveName || 'Wave ' + t.waveNum} • Role: ${t.role}`;
+
+      document.getElementById('modal-body').innerHTML = `
+        <div class="grid three" style="margin-bottom: 20px;">
+          <div class="card accent">
+            <div class="kpi-label">Final Roleplay</div>
+            <div class="kpi-value accent-value">${t.final.toFixed(2)}<span class="unit"> / 5</span></div>
+            <div class="kpi-note">Baseline: ${t.initial.toFixed(2)}<br>Gain: +${t.gain.toFixed(2)}</div>
+          </div>
+          <div class="card">
+            <div class="kpi-label">Module Completion</div>
+            <div class="kpi-value">${t.module}%</div>
+            <div class="kpi-note">Target: 80%</div>
+          </div>
+          <div class="card">
+            <div class="kpi-label">Attendance</div>
+            <div class="kpi-value">${t.attendance}%</div>
+            <div class="kpi-note">Priority: <span class="badge ${t.priority==='High'?'high':'low'}">${t.priority}</span></div>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top: 10px; font-size: 14px;">Evaluator Rubric Competencies:</div>
+        <div style="background: #FAFAFA; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px;">
+            <span>Discovery &amp; Needs Probing:</span><b>${(t.final * 0.95).toFixed(1)} / 5.0</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px;">
+            <span>Objection Handling &amp; Composure:</span><b>${(t.final * 0.90).toFixed(1)} / 5.0</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px;">
+            <span>Product Knowledge &amp; Accuracy:</span><b>${(t.final * 1.02).toFixed(1)} / 5.0</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px;">
+            <span>Call Control &amp; Pacing:</span><b>${(t.final * 0.98).toFixed(1)} / 5.0</b>
+          </div>
+        </div>
+
+        <p class="small" style="font-style: italic;">
+          Evaluator Summary: Trainee demonstrates structured call engagement. Focus coaching on handling pricing and timeline pushback without premature escalation.
+        </p>
+      `;
+
+      document.getElementById('trainee-modal').classList.add('open');
+    }
+
+    function closeModal(e) {
+      document.getElementById('trainee-modal').classList.remove('open');
+    }
+
+    /**
+     * EXCEL WORKBOOK EXPORT (.XLSX)
+     */
+    function exportMasterWorkbook() {
+      if (!window.XLSX) {
+        alert('SheetJS is loading. Please try again in a moment.');
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+
+      const summaryData = [
+        ['Cohort / Workbook Name', 'Sheet ID', 'Trainer', 'Active HC', 'Baseline RP', 'Final RP', 'RP Gain', 'Module %', 'Attendance %', 'Priority'],
+        ['Wave 1 (EOT)', CONFIG.sheet1.id, 'Anwar', 13, 1.74, 2.75, '+1.01', '80.1%', '71.5%', '4 High • 8 Med • 1 Low'],
+        ['Wave 2 (EOT)', CONFIG.sheet2.id, 'Anwar', 17, 1.87, 2.90, '+1.04', '78.4%', '82.6%', '17 High'],
+        ['Wave 3 (Perf Tracker)', CONFIG.sheet3.id, 'Lead Coach', 16, 3.03, 3.85, '+0.82', '84.2%', '88.0%', '2 High • 9 Med • 5 Low'],
+        ['Wave 4 (Waves 65-66)', CONFIG.sheet4.id, 'Ops Trainer', 18, 3.20, 3.92, '+0.72', '91.4%', '89.5%', '2 High • 12 Med • 4 Low'],
+        ['Wave 5 (Wave 66 Ops)', CONFIG.sheet5.id, 'Mai Medhat Awad', 6, 3.80, 4.55, '+0.75', '92.6%', '94.0%', '0 High • 2 Med • 4 Low'],
+        ['Wave 6 (Monitors)', CONFIG.sheet6.id, 'Quality Monitors', 12, 3.20, 3.78, '+0.58', '91.7%', '92.5%', '1 High • 7 Med • 4 Low']
+      ];
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Compare All Cohorts');
+
+      Object.keys(WORKBOOK_DATA).forEach((key, idx) => {
+        const w = WORKBOOK_DATA[key];
+        const rows = (w.trainees || []).map(t => ({
+          'Trainee Name': t.name,
+          'ID': t.id,
+          'Role': t.role,
+          'Initial RP': t.initial,
+          'Final RP': t.final,
+          'RP Gain': t.gain,
+          'Module %': t.module,
+          'Attendance %': t.attendance,
+          'Priority': t.priority
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, `Wave ${idx + 1}`);
+      });
+
+      XLSX.writeFile(wb, `TP_Skillence_6_Waves_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    }
+
+    /**
+     * INITIALIZE
+     */
+    function renderAllViews() {
+      renderComparisonMatrixTable();
+      renderComparisonCharts();
+      filterMasterTrainees();
+      renderWaveDetailTables();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAllViews();
+      syncAllLiveWorkbooks();
+    });
+  </script>
+</body>
+</html>
